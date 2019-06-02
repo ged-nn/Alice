@@ -32,6 +32,23 @@ class Notepad {
 
 }
 
+class phonebook {
+	public $file;
+	public $list;
+	public $user_id;
+	
+	function dial($PHONE_DIAL){
+		include_once 'phonebook/dial_'.$user_id.'.cfg';
+
+		debug($URL.'?phone='.$PHONE_DIAL.'&token='.$PASSWD.'&user='.$USER,0,"URL:");
+		$ch = curl_init($URL.'?phone='.$PHONE_DIAL.'&token='.$PASSWD.'&user='.$USER);
+		curl_setopt($ch, CURLOPT_HEADER, 0);
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER,1);
+		$curl_out=curl_exec($ch);
+		curl_close($ch);
+	}
+}
+
 class User {
 	public $user_list;
 	public $file="config/users.cfg";
@@ -55,7 +72,7 @@ class User {
 	
 
 	public function get_name($user_id){
-		$name='unknow';
+		$name='незнакомец';
 		if (isset($this->user_list[$user_id]['name']))
 			$name=$this->user_list[$user_id]['name'];
 		else
@@ -79,12 +96,17 @@ class User {
 	
 }
 
+function get_random_answer($list){
+	return ($list[rand(0,count($list)-1)]);
+}
+
 class Answer{
 	public $text='';
 	public $tts='';
 	public $response;
 	public $data;
 	public $button;
+	public $end_session=false;
 	public function add_button($title,$options){
 		
 	}
@@ -95,7 +117,7 @@ class Answer{
 		$answer['response']['text'] = $this->txt;
 		$answer['response']['tts'] = $this->tts;
 		$answer["response"]["buttons"] = array();
-		$answer["response"]["end_session"] = false;
+		$answer["response"]["end_session"] = $this->end_session;
 		$answer["session"]["session_id"]=$this->data->session->session_id;
 		$answer["session"]["message_id"]=$this->data->session->message_id;
 		$answer["session"]["user_id"]=$this->data->session->user_id;
@@ -170,15 +192,19 @@ else
 {
 */
 $orig = $data->request->original_utterance;
+
 $opt = $data->request->payload->opt;
 $orig = trim($orig);
 $orig = strtolower($orig);
 debug($orig,1,"orig:");
+
+$orig=trim(preg_replace('/^алиса /i','',$orig));
+
 switch ($orig)
 {
+
 	case 'позвони роботу':
-	case 'позвонить роботу':
-	case 'попроси умную вику позвонить роботу':
+	case (preg_match('/позвонить роботу/i', $orig) ? true : false) :
 		debug("Звоним роботу");
 		$answer_new->txt="Сейчас наберу робота";
 		dial("6049");
@@ -190,16 +216,22 @@ switch ($orig)
 		$answer_new->txt="Сейчас наберу папе";
 		dial("6044");
 		break;
-	case (preg_match('/.* меня зовут .*/i', $orig) ? true : false) :
-		$name=preg_replace('/.* меня зовут /i','',$orig);
+	case (preg_match('/.*меня зовут .*/i', $orig) ? true : false) :
+		$name=preg_replace('/.*меня зовут /i','',$orig);
 		$user->set_name($data->session->user_id,$name);
 		$answer_new->txt="Приятно познакомиться ".$name." . Я постараюсь вас запомнить.";
 		debug($user->user_list,1,"User_list:");
 		break;
+	case "кто я":
 	case (preg_match('/как меня зовут.*/i', $orig) ? true : false) :
 		$name=$user->get_name($data->session->user_id);
 		$answer_new->txt="На сколько я помню, вас зовут ".$name." . Если я не угадала, поправьте меня";
 		break;
+
+	case (preg_match('/я дома/i', $orig) ? true : false) :
+		$orig=preg_replace('/я /i','',$orig);
+	case (preg_match('/я на работе/i', $orig) ? true : false) :
+		$orig=preg_replace('/я /i','',$orig);
 
 	case (preg_match('/я сейчас .*/i', $orig) ? true : false) :
 		$place=preg_replace('/я сейчас /i','',$orig);
@@ -220,25 +252,45 @@ switch ($orig)
 		break;
 		
 	case (preg_match('/скажи умной вике я ухожу.*/i', $orig) ? true : false) :
-	case (preg_match('/^я ушел.*/i', $orig) ? true : false) :
-	case (preg_match('/^я ухожу.*/i', $orig) ? true : false) :
+	case (preg_match('/^я (ушел|ушла|ухожу).*/i', $orig) ? true : false) :
+#	case (preg_match('/^я ухожу.*/i', $orig) ? true : false) :
 		#$name=$user->get_name($data->session->user_id);
+		$notepad=new Notepad($data->session->user_id);
+		$notepad->add($orig." с места ".$user->get_place($data->session->user_id));
 		$answer_new->txt="Счастливого пути. Я буду скучать.
 		Перед уходом, не забудьте:
 			Выключить свет.
 			Взять телефон";
 		break;
+	case (preg_match('/^запиши телефон.*/i', $orig) ? true : false) :
+		$text=preg_replace('/запиши телефон/i','',$orig);
+		$phonename=$data->request->command;
+		preg_match_all("/([0-9-() ]+)/",$data->request->command,$phonenumber);
+		#if (isset($phonenumber[1]))
+		$char_search[]="/ /";
+		$char_search[]="/-/";
+		$char_search[]="/(/";
+		$char_search[]="/)/";
+		debug($phonenumber,1,"phonenumber1: ");
 
+		$phonenumber=preg_replace('~\D+~','',$phonenumber[1]);
+		#$phonenumber=preg_replace('/[ -()]/','',$phonenumber[1]);
+		debug($phonename,0,"phonename: ");
+		debug($phonenumber,1,"phonenumber2: ");
+
+			$answer_new->txt="Извините, я пока не научилась записывать телефоны. Но я пытаюсь научиться";
+
+		break;
 	case (preg_match('/^запиши .*/i', $orig) ? true : false) :
-		$notepad=new Notepad($data->session->user_id);
 		$text=preg_replace('/запиши /i','',$orig);
+		$notepad=new Notepad($data->session->user_id);
 		if ($notepad->add($text))
 			$answer_new->txt="Я записала: ".$text;
 		else
 			$answer_new->txt="Извините, почему-то у меня не получилось записать.";
 		break;
 	case (preg_match('/^прочти последнюю запись.*/i', $orig) ? true : false) :
-	case (preg_match('/что записала.*/i', $orig) ? true : false) :
+	case (preg_match('/что (записала|ты записала).*/i', $orig) ? true : false) :
 		$notepad=new Notepad($data->session->user_id);
 		$result=$notepad->get();
 		if ($result==false)
@@ -247,19 +299,45 @@ switch ($orig)
 		break;
 
 	case "спасибо":
-		$answer_new->txt="Всегда пожалуйста";
+		$answer_list[]="Всегда пожалуйста";
+		$answer_list[]="Обращайтесь";
+		$answer_list[]="Если что, я вас тут жду.";
+		$answer_new->txt=get_random_answer($answer_list);
+		break;
 
 
 	case "помощь":
-	case "что ты можешь":
+	case (preg_match('/что ты (можешь|умеешь).*/i', $orig) ? true : false) :
 		$answer_new->txt="Привет , ".$user_name."! На данный момент я могу:
 		Запомнить как вас зовут и где вы находитесь.
 		Позвонить некоторым абонентам.
+		Записать что-нибудь в блокнот и прочитать последнюю запись.
 		Я надеюсь, что со временем я стану умнее.";
 		break;
-		
+
+	case "ping":
+		$answer_new->txt="pong";
+		break;
+	case "хватит":
+	case "стоп":
+	case "пока пока":
+	case "пока":
+		$answer_new->end_session=true;
+		$answer_list[]="Обращайтесь";
+		$answer_list[]="Если что, я вас тут жду.";
+		$answer_new->txt=get_random_answer($answer_list);
+		break;
+
 	default:
-		$answer_new->txt="Привет , ".$user_name."! Я помогу тебе управлять домом и вести некоторые личные дела.";
+		if ($user_name!="незнакомец") {
+			$answer_list[]="С возвращением ".$user_name;
+			$answer_list[]="Приятно вас снова услышать ".$user_name;
+			$answer_list[]="Я скучала по вам ".$user_name;
+			$answer_list[]="Я заждалась вас ".$user_name;
+			$answer_new->txt=get_random_answer($answer_list);
+		}
+		else
+			$answer_new->txt="Привет , ".$user_name."! Я помогу тебе управлять домом и вести некоторые личные дела. Чтобы узнать, что я умею, скажи помощь.";
 }
 header('Content-Type: application/json');
 echo json_encode($answer_new->result());
