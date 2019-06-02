@@ -1,0 +1,4 @@
+<?php
+    $URL='http://your_server/dial/';
+    $USER='login';
+    $PASSWD='password';

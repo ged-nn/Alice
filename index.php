@@ -1,5 +1,61 @@
 <?php
 
+
+class Answer{
+    public $text='';
+    public $tts='';
+    public $response;
+    public $data;
+    public $buton;
+    public function result() {
+        
+        if (strlen($this->tts)==0)
+            $this->tts=$this->txt;
+        $answer['response']['text'] = $this->txt;
+        $answer['response']['tts'] = $this->tts;
+        $answer["response"]["buttons"] = array();
+        $answer["response"]["end_session"] = false;
+        $answer["session"]["session_id"]=$this->data->session->session_id;
+        $answer["session"]["message_id"]=$this->data->session->message_id;
+        $answer["session"]["user_id"]=$this->data->session->user_id;
+        $answer["version"] = $this->data->version;
+        return $answer;
+          /*  
+            $answer['response']['buttons'] = array(
+            array(
+                'title' => 'позвони',
+                'payload' => array('opt' => 'dial'),
+            ),
+            array(
+                'title' => 'управлять делами',
+                'payload' => array('opt' => 'todo'),
+            ),
+            array(
+                'title' => 'другой выбор',
+                'payload' => array('opt' => 'more'),
+            ),
+        );
+        */
+    }
+    public function __construct($data,$txt="",$tts="",$button="") {
+        $this->data=$data;
+		$this->txt=$txt;
+		$this->tts=$tts;
+	}
+}
+
+function dial($PHONE_DIAL){
+    include_once 'dial.cfg';
+
+    debug($URL.'?phone='.$PHONE_DIAL.'&token='.$PASSWD.'&user='.$USER,0,"URL:");
+    $ch = curl_init($URL.'?phone='.$PHONE_DIAL.'&token='.$PASSWD.'&user='.$USER);
+    curl_setopt($ch, CURLOPT_HEADER, 0);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER,1);
+    
+    $curl_out=curl_exec($ch);
+    curl_close($ch);
+}
+
 function debug($text,$var=false,$prefix="")
 {
 	$file='debug.log';
@@ -7,7 +63,7 @@ function debug($text,$var=false,$prefix="")
 		$message=$text;
 	else
 		$message=var_export($text,true);
-
+    $message=date("Y-m-d H:i:s:v").": ".$message;
 	if (strlen($prefix)>0)
 		$message=$prefix.$message;
 
@@ -22,161 +78,33 @@ $data = json_decode($dataRow);
 
 debug($data,1, "Получили от алисы: ");
 
-//Подготовливаем ответ Алисе
+$answer_new= new Answer($data);
+/*
 if ($data->request->original_utterance == "" && $data->session->message_id == 0)
-{
-    $answer = array(
-        "response" => array(
-            "text" => "Кому вы хотите позвонить?",
-            "tts" => "Кому вы хотите позвонить?",
-            "buttons" => array(),
-            "end_session" => false,
-        ),
-        "session" => array(
-            "session_id" => $data->session->session_id,
-            "message_id" => $data->session->message_id,
-            "user_id" => $data->session->user_id,
-        ),
-        "version" => $data->version,
-    );
+    debug("Пришел чистый запрос. Непонятный старт");
 }
 else
 {
-    $answer = array(
-        "response" => array(
-            "text" => "",
-            "tts" => "",
-            "buttons" => array(),
-            "end_session" => false,
-        ),
-        "session" => array(
-            "session_id" => $data->session->session_id,
-            "message_id" => $data->session->message_id,
-            "user_id" => $data->session->user_id,
-        ),
-        "version" => $data->version,
-    );
-    $orig = $data->request->original_utterance;
-    $opt = $data->request->payload->opt;
-    $orig = trim($orig);
-    $orig = strtolower($orig);
-    if ($orig == 'позвони роботу' || $orig == 'Позвони роботу'){
+*/
+$orig = $data->request->original_utterance;
+$opt = $data->request->payload->opt;
+$orig = trim($orig);
+$orig = strtolower($orig);
+
+switch ($orig)
+{
+    case 'позвони роботу':
+    case 'позвонить роботу':
+    case 'попроси умную вику позвонить роботу':
         debug("Звоним роботу");
-        $answer_txt="Набираю робота 6049";
-        $answer['response']['text'] = $answer_txt;
-#        $answer['response']['tts']=$answer['response']['text'];
-        $answer_txt;
-    }
-    
-    elseif ($orig == 'что ты умеешь делать' || $orig == 'Что ты умеешь делать'){
-        $answer_txt="Я могу позвонить роботу. \n В дальнейшем я планирую научиться записывать и рассказывать твои дела.";
-        $answer['response']['text'] = $answer_txt;
-        $answer['response']['tts']=$answer['response']['text'];
-	}
-    elseif ($orig == 'запусти навык умная вика' || $orig == 'Запусти навык умная вика'){
-	$text_help='Добро пожаловать! Я помогу тебе управлять домом и вести некоторые личные дела.';
-        $answer['response']['text'] = $text_help;
-        $answer['response']['tts'] = $text_help;
-        $answer['response']['buttons'] = array(
-            array(
-                'title' => 'позвони',
-                'payload' => array('opt' => 'dial'),
-            ),
-            array(
-                'title' => 'управлять делами',
-                'payload' => array('opt' => 'todo'),
-            ),
-            array(
-                'title' => 'другой выбор',
-                'payload' => array('opt' => 'more'),
-            ),
-        );
-    }
-    elseif ($opt == 'write' || $orig == 'писать')
-    {
-        $answer['response']['text'] = 'Если умеешь излагать свои мысли письменно, получи ссылки с описаниями бирж. \n"eTXT" произносится как "е т икс т", "TextSale" произносится как "текст саль"';
-        $answer['response']['tts'] = 'Если умеешь излагать свои мысли письменно, - не дай проп+асть способностям д+аром!';
-        $answer['response']['buttons'] = array(
-            array(
-                'title' => 'кнопка 1',
-                'url' => 'https://dawork.ru/?view=article&id=2',
-            ),
-        );
-    }
-    elseif($orig == 'помощь' || $opt == 'help')
-    {
-	$text_help='Добро пожаловать! Я помогу тебе управлять домом и вести некоторые личные дела. '.$data->session->message_id;
-        $answer['response']['text'] = $text_help;
-        $answer['response']['tts'] = $text_help;
-        $answer['response']['buttons'] = array(
-            array(
-                'title' => 'писАть',
-                'payload' => array('opt' => 'write'),
-            ),
-            array(
-                'title' => 'фотографировать',
-                'payload' => array('opt' => 'photo'),
-            ),
-            array(
-                'title' => 'другой выбор',
-                'payload' => array('opt' => 'more'),
-            ),
-        );
-    }
-    elseif ($orig != '' || $orig != 'помощь')
-    {
-        if ($data->session->message_id == ($_SESSION['id'] + 1))
-        {
-            $answer['response']['text'] = 'Ошибка! Пожалуйста, повтори, или нажми на кнопку "Помощь"!';
-            $answer['response']['tts'] = 'Извини, я не расслышала! - Пожалуйста, повтори, - или нажми на кнопку "Помощь"!';
-            $answer['response']['buttons'] = array(
-                array(
-                    'title' => 'Помощь',
-                    'payload' => array('opt' => 'help'),
-                ),
-            );
-        }
-        elseif ($data->session->message_id == ($_SESSION['id'] + 2) || $data->session->message_id == ($_SESSION['id'] + 4))
-        {
-            $answer['response']['text'] = 'Что изволите хояин? '.$_SESSION['id'];
-            $answer['response']['tts'] = 'Что изволите хояин? '.$_SESSION['id'];
-            $answer['response']['buttons'] = array(
-                array(
-                    'title' => 'Заработок в интернете',
-                    'url' => 'https://dawork.ru/',
-                ));
-            if (isset($_SESSION['id']))
-            {
-                unset($_SESSION['id']);
-                //session_destroy();
-            }
-        }
-        else
-        {
-            $id = $data->session->session_id;
-            session_id($id);
-            session_start();
-            if (!isset($_SESSION['id'])) $_SESSION['id'] = [];
-            array_push($_SESSION['id'], $data->session->message_id);
-            $answer['response']['text'] = 'Мы куда-то провалились';
-            $answer['response']['tts'] = $answer['response']['text'];
-            $answer['response']['buttons'] = array(
-                array(
-                    'title' => 'писАть',
-                    'payload' => array('opt' => 'write'),
-                ),
-                array(
-                    'title' => 'фотографировать',
-                    'payload' => array('opt' => 'photo'),
-                ),
-                array(
-                    'title' => 'другой выбор',
-                    'payload' => array('opt' => 'more'),
-                ),
-            );
-        }
-    }
+        $answer_new->txt="Сейчас наберу робота";
+        dial("6049");
+        break;
+    default:
+        $answer_new->txt=" . Добро пожаловать! Я помогу тебе управлять домом и вести некоторые личные дела.";
 }
 header('Content-Type: application/json');
-echo json_encode($answer);
+echo json_encode($answer_new->result());
+
+debug ($answer_new->result(),1,"answer_new:");
 
