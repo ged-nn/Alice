@@ -199,10 +199,11 @@ $orig = strtolower($orig);
 debug($orig,1,"orig:");
 
 $orig=trim(preg_replace('/^алиса /i','',$orig));
+if ($orig=='')
+	$orig="помощь";
 
 switch ($orig)
 {
-
 	case 'позвони роботу':
 	case (preg_match('/позвонить роботу/i', $orig) ? true : false) :
 		debug("Звоним роботу");
@@ -236,6 +237,9 @@ switch ($orig)
 	case (preg_match('/я сейчас .*/i', $orig) ? true : false) :
 		$place=preg_replace('/я сейчас /i','',$orig);
 		$user->set_place($data->session->user_id,$place);
+                $notepad=new Notepad($data->session->user_id);
+                $notepad->add($user->get_name($data->session->user_id)." : "."теперь ".$user->get_place($data->session->user_id));
+ 
 		$answer_new->txt="Я поняла что вы сейчас ".$place." . Я постараюсь запомнить это место.";
 		debug($user->user_list,1,"User_list:");
 		break;
@@ -251,8 +255,8 @@ switch ($orig)
 		$answer_new->txt="На сколько я помню, вас зовут ".$name." . Если я не угадала, поправьте меня";
 		break;
 		
-	case (preg_match('/скажи умной вике я ухожу.*/i', $orig) ? true : false) :
-	case (preg_match('/^я (ушел|ушла|ухожу).*/i', $orig) ? true : false) :
+	case (preg_match('/(С|с)кажи умной (В|в)ике я ухожу.*/i', $orig) ? true : false) :
+	case (preg_match('/^я (пошел|ушел|ушла|ухожу).*/i', $orig) ? true : false) :
 #	case (preg_match('/^я ухожу.*/i', $orig) ? true : false) :
 		#$name=$user->get_name($data->session->user_id);
 		$notepad=new Notepad($data->session->user_id);
@@ -280,17 +284,17 @@ switch ($orig)
 
 			$answer_new->txt="Извините, я пока не научилась записывать телефоны. Но я пытаюсь научиться";
 
-		break;
+		#break;
 	case (preg_match('/^запиши .*/i', $orig) ? true : false) :
 		$text=preg_replace('/запиши /i','',$orig);
 		$notepad=new Notepad($data->session->user_id);
-		if ($notepad->add($text))
+		if ($notepad->add($user_name." : ".$text))
 			$answer_new->txt="Я записала: ".$text;
 		else
 			$answer_new->txt="Извините, почему-то у меня не получилось записать.";
 		break;
 	case (preg_match('/^прочти последнюю запись.*/i', $orig) ? true : false) :
-	case (preg_match('/что (записала|ты записала).*/i', $orig) ? true : false) :
+	case (preg_match('/что (записала|ты записала|написала|ты написала).*/i', $orig) ? true : false) :
 		$notepad=new Notepad($data->session->user_id);
 		$result=$notepad->get();
 		if ($result==false)
@@ -316,7 +320,8 @@ switch ($orig)
 		break;
 
 	case "ping":
-		$answer_new->txt="pong";
+		$answer_new->end_session=true;
+		$answer_new->txt="";
 		break;
 	case "хватит":
 	case "стоп":
